@@ -48,10 +48,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="PLX.DBMigration.Clients\Program.cs" />
-    <Compile Include="PLX.DBMigration.Managers\ExportManager.cs" />
-    <Compile Include="PLX.DBMigration.Managers\FinalizeManager.cs" />
-    <Compile Include="PLX.DBMigration.Managers\ParseFileManager.cs" />
-    <Compile Include="PLX.DBMigration.Managers\UpgradeManager.cs" />
+    <Compile Include="PLX.DBMigration.Managers\MigrationManager.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="PLX.DBMigration.Accessors\OracleAccessor.cs" />
     <Compile Include="PLX.DBMigration.Accessors\OracleProcedureInput.cs" />

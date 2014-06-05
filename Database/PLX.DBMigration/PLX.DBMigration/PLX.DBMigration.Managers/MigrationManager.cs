@@ -12,12 +12,34 @@ namespace PLX.DBMigration.Managers
     /// <summary>
     /// Export Manager is responsible for executing all of the steps involved in creating an upgrade export
     /// </summary>
-    public class ExportManager
-    {        
+    public class MigrationManager
+    {
+        #region Properties
+
+        /***********************************************************************/
+        // Properties
+        /***********************************************************************/
+
+        private string currentEdition;
+        public string CurrentEdition
+        {
+            get { return currentEdition; }
+            set { currentEdition = value; }
+        }
+
+        private string nextEdition;
+        public string NextEdition
+        {
+            get { return nextEdition; }
+            set { nextEdition = value; }
+        }
+
+        #endregion
+
         /// <summary>
         /// Constructor
         /// </summary>
-        public ExportManager()
+        public MigrationManager()
         {
         }
 
@@ -32,78 +54,16 @@ namespace PLX.DBMigration.Managers
         /// </summary>
         public void RunExport()
         {
-            // New way makes these obsolete? //
-            //UpdateDatabaseGit();
-            //RunParseFiles();
-            
             // Start from rt_upgrade_command table fully populated //
             RunClrDll();
-            CreateDmpFile();
-        }
-
-        /// <summary>
-        /// Update Git repo to get latest version of db code.
-        /// </summary>
-        public void UpdateDatabaseGit()
-        {
-            try
-            {
-                Console.WriteLine("Get the latest code from git.exe.");
-                XmlAccessor xClass = new XmlAccessor();
-                xClass.ReadXmlFile();
-
-                if (File.Exists(xClass.XmlValues["GitLocation"]))
-                {
-                    ProcessStartInfo pInfo = new ProcessStartInfo();
-                    pInfo.FileName = xClass.XmlValues["GitLocation"];
-                    pInfo.Arguments = "pull";
-                    pInfo.WorkingDirectory = xClass.XmlValues["RepoLocation"];
-
-                    Process p = new Process();
-                    p.StartInfo = pInfo;
-                    p.Start();
-                    p.WaitForExit();
-                    p.Close();
-
-                    //pInfo.UseShellExecute = false;
-                    //pInfo.CreateNoWindow = true;
-                    //pInfo.RedirectStandardError = true;
-                    //pInfo.RedirectStandardOutput = true;
-
-                    //Process p = new Process();
-                    //p.StartInfo = pInfo;
-                    //p.OutputDataReceived += new DataReceivedEventHandler(Display);
-                    //p.ErrorDataReceived += new DataReceivedEventHandler(Display);
-                    //p.Start();
-                    //p.BeginOutputReadLine();
-                    //p.BeginErrorReadLine();
-
-                    //p.WaitForExit();
-                    //p.Close();
-                }
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e.Message);
-            }
-        }
-
-        /// <summary>
-        /// Parse each db code file.
-        /// </summary>
-        public void RunParseFiles()
-        {
-            try
-            {
-                ParseFileManager pfm = new ParseFileManager();
-                pfm.ReadFilesToInsert("Structure");
-                pfm.ReadFilesToInsert("Code");
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e.Message);
-                Console.WriteLine("Make sure XmlDefault.xml is setup correctly.");
-            }
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            string dumpName = CreateDmpFile();
+            Console.ForegroundColor = ConsoleColor.DarkYellow;
+            Run_CopyDumpFile(dumpName);
+            Console.ForegroundColor = ConsoleColor.Red;
+            Run_RunUnpack(dumpName);
+            Console.ForegroundColor = ConsoleColor.DarkRed;
+            Run_RunUpgrade();
         }
 
         /// <summary>
@@ -139,40 +99,16 @@ namespace PLX.DBMigration.Managers
         /// <summary>
         /// Create the dump file using expdp.exe.
         /// </summary>
-        public void CreateDmpFile()
+        public string CreateDmpFile()
         {
             try
             {
                 Console.WriteLine("Create an Export dmp file...");
 
-                string startLocation = "";
-                string currentEdition = "";
-                string nextEdition = "";
-                string oracleLocation = "";
-
-                // Get locations from XML File //
+                // Get values from XML File and args //
                 XmlAccessor xClass = new XmlAccessor();
                 xClass.ReadXmlFile();
-                startLocation = xClass.XmlValues["StartLocation"];
-                oracleLocation = xClass.XmlValues["OracleLocation"];
-
-                /*
-                // Get Current and Next Edition from text file //
-                if (File.Exists(startLocation + "\\Current Edition.txt"))
-                {
-                    using (var sr = new StreamReader(startLocation + "\\Current Edition.txt"))
-                    {
-                        currentEdition = sr.ReadLine();
-                        nextEdition = sr.ReadLine();
-                    }
-                }
-                else
-                {
-                    Console.WriteLine("File Missing " + startLocation + "\\Current Edition.txt");
-                }
-                 */
-                currentEdition = "E07";
-                nextEdition = "E08";
+                string oracleLocation = xClass.XmlValues["OracleLocation"];
                 string fileName = "upg_" + currentEdition + "_" + nextEdition;
 
                 // Update upg_exp.txt // 
@@ -193,7 +129,6 @@ namespace PLX.DBMigration.Managers
                 ProcessStartInfo pInfo = new ProcessStartInfo();
                 pInfo.FileName = "expdp.exe";
                 pInfo.WorkingDirectory = oracleLocation;
-                //pInfo.Arguments = "lynx@beta/dang3r DUMPFILE=" + fileName + ".dmp LOGFILE=" + fileName + ".log REUSE_DUMPFILES=YES";
                 pInfo.Arguments = "lynx_dev@pldb/f3line parfile=" + upgFile;
                 pInfo.UseShellExecute = false;
                 pInfo.CreateNoWindow = true;
@@ -214,15 +149,102 @@ namespace PLX.DBMigration.Managers
                 p.Close();
 
                 Console.WriteLine("Export dmp file has been created!");
-
-                // dmp file is created in this location //
-                // C:\app\oracle\admin\PLDB\dpdump
+                return fileName;
             }
             catch (Exception e)
             {
                 Console.WriteLine(e.Message);
                 Console.WriteLine("Create dmp file Failed!");
+                return "";
             }
+        }
+
+        /// <summary>
+        /// Run CopyDumpFile.bat.
+        /// </summary>
+        /// <param name="dumpName"></param>
+        public void Run_CopyDumpFile(string dumpName)
+        {
+            Console.WriteLine("Starting CopyDumpFile.bat...");
+            
+            ProcessStartInfo pInfo = new ProcessStartInfo();
+            pInfo.FileName = "CopyDumpFile.bat";
+            pInfo.Arguments = dumpName;
+            pInfo.UseShellExecute = false;
+            pInfo.CreateNoWindow = true;
+            pInfo.RedirectStandardError = true;
+            pInfo.RedirectStandardOutput = true;
+
+            Process p = new Process();
+            p.StartInfo = pInfo;
+            p.OutputDataReceived += new DataReceivedEventHandler(Display);
+            p.ErrorDataReceived += new DataReceivedEventHandler(Display);
+            p.Start();
+            p.BeginOutputReadLine();
+            p.BeginErrorReadLine();
+
+            p.WaitForExit();
+            p.Close();
+
+            Console.WriteLine(dumpName + ".dmp has been copied!");
+        }
+
+        /// <summary>
+        /// Run RunUnpack.bat.
+        /// </summary>
+        /// <param name="dumpName"></param>
+        public void Run_RunUnpack(string dumpName)
+        {
+            Console.WriteLine("Starting RunUnpack.bat...");
+            
+            ProcessStartInfo pInfo = new ProcessStartInfo();
+            pInfo.FileName = "RunUnpack.bat";
+            pInfo.Arguments = dumpName;
+            pInfo.UseShellExecute = false;
+            pInfo.CreateNoWindow = true;
+            pInfo.RedirectStandardError = true;
+            pInfo.RedirectStandardOutput = true;
+
+            Process p = new Process();
+            p.StartInfo = pInfo;
+            p.OutputDataReceived += new DataReceivedEventHandler(Display);
+            p.ErrorDataReceived += new DataReceivedEventHandler(Display);
+            p.Start();
+            p.BeginOutputReadLine();
+            p.BeginErrorReadLine();
+
+            p.WaitForExit();
+            p.Close();
+
+            Console.WriteLine("Files were unpacked!");
+        }
+
+        /// <summary>
+        /// Run RunUpgrade.bat.
+        /// </summary>
+        public void Run_RunUpgrade()
+        {
+            Console.WriteLine("Starting RunUpgrade.bat...");
+
+            ProcessStartInfo pInfo = new ProcessStartInfo();
+            pInfo.FileName = "RunUpgrade.bat";
+            pInfo.UseShellExecute = false;
+            pInfo.CreateNoWindow = true;
+            pInfo.RedirectStandardError = true;
+            pInfo.RedirectStandardOutput = true;
+
+            Process p = new Process();
+            p.StartInfo = pInfo;
+            p.OutputDataReceived += new DataReceivedEventHandler(Display);
+            p.ErrorDataReceived += new DataReceivedEventHandler(Display);
+            p.Start();
+            p.BeginOutputReadLine();
+            p.BeginErrorReadLine();
+
+            p.WaitForExit();
+            p.Close();
+
+            Console.WriteLine("Upgrade is finished!");
         }
 
         /// <summary>

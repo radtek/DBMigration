@@ -18,14 +18,10 @@ namespace PLX.DBMigration.MigrationClient
             if (CheckArgs(args))
                 return;
 
-            ExportManager exportManager = new ExportManager();
-            exportManager.RunExport();
-
-            //UpgradeManager upgradeManager = new UpgradeManager();
-            //upgradeManager.RunUpgrade();
-
-            //FinalizeManager finalizeManager = new FinalizeManager();
-            //finalizeManager.RunFinal();
+            MigrationManager migrationManager = new MigrationManager();
+            migrationManager.CurrentEdition = args[0];
+            migrationManager.NextEdition = args[1];
+            migrationManager.RunExport();
 
             ConsoleFinished();
             
@@ -71,14 +67,31 @@ namespace PLX.DBMigration.MigrationClient
                     ShowHelp();
                     return true;
                 }
+                else if (arg.IndexOf("E") == 0)
+                {
+                    // Valid arg check //
+                    if ((args[0].IndexOf("E") == 0) && (args[1].IndexOf("E") == 0))
+                    {
+                        return false;
+                    }
+                    else
+                    {
+                        Console.WriteLine("Invalid Entry!  Press enter to exit!");
+                        Console.ReadLine();
+                        return true;
+                    }
+                }
                 else
                 {
-                    Console.WriteLine("Invalid Entry!");
+                    Console.WriteLine("Invalid Entry!  Press enter to exit!");
+                    Console.ReadLine();
                     return true;
                 }
             }
 
-            return false;
+            Console.WriteLine("Invalid Entry!  Press enter to exit!");
+            Console.ReadLine();
+            return true;
         }
 
         /// <summary>
@@ -118,6 +131,8 @@ namespace PLX.DBMigration.MigrationClient
             Console.WriteLine();
             Console.WriteLine("*** Help File ***");
             Console.WriteLine();
+            Console.WriteLine("$ EXX EXY - This will start the full upgrade process.");
+            Console.WriteLine("  \"EXX\" is current edition \"EXY\" is next edition.");
             Console.WriteLine("$ newxml - Create a new default xml file \"XmlDefault.xml\".");
             Console.WriteLine("  This file can be modified for the correct database parameters.");
             Console.WriteLine("$ testdb - Test a database connection.");
@@ -142,7 +157,7 @@ namespace PLX.DBMigration.MigrationClient
         static void ConsoleFinished()
         {
             Console.BackgroundColor = ConsoleColor.Black;
-            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.ForegroundColor = ConsoleColor.White;
             Console.WriteLine("** Brian Bot Finished, press enter to exit! **");
             Console.ReadLine();
         }
